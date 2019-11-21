@@ -9,75 +9,71 @@
 #include "MainComponent.h"
 
 //==============================================================================
-MainComponent::MainComponent()
+MainComponent::MainComponent()  : level(0.0f)
 {
-    // Make sure you set the size of the component after
-    // you add any child components.
     setSize (800, 600);
-
-    // Some platforms require permissions to open input channels so request that here
     if (RuntimePermissions::isRequired (RuntimePermissions::recordAudio)
-        && ! RuntimePermissions::isGranted (RuntimePermissions::recordAudio))
-    {
+        && ! RuntimePermissions::isGranted (RuntimePermissions::recordAudio)) {
         RuntimePermissions::request (RuntimePermissions::recordAudio,
-                                     [&] (bool granted) { if (granted)  setAudioChannels (2, 2); });
+                                     [&] (bool granted) { if (granted)  setAudioChannels (0, 2); });
+    } else {
+        setAudioChannels (0, 2);
     }
-    else
-    {
-        // Specify the number of input and output channels that we want to open
-        setAudioChannels (2, 2);
-    }
+    
+    decibelSlider.setValue(Decibels::gainToDecibels(level, -96.0f));
+    decibelSlider.setRange(-100, -12);
+    decibelSlider.setTextBoxStyle(Slider::TextBoxRight, false, 100, 20);
+    //levelSlider.setTextValueSuffix(" dB");
+    addAndMakeVisible(decibelSlider);
+    decibelSlider.onValueChange = [this] {
+        level = Decibels::decibelsToGain((float)decibelSlider.getValue());
+    };
+    
+    levelLabel.setText("Noise Level in dB", dontSendNotification);
+    levelLabel.attachToComponent(&decibelSlider, true);
+    addAndMakeVisible(levelLabel);
 }
 
-MainComponent::~MainComponent()
-{
-    // This shuts down the audio device and clears the audio source.
+MainComponent::~MainComponent() {
     shutdownAudio();
 }
 
 //==============================================================================
-void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
-{
-    // This function will be called when the audio device is started, or when
-    // its settings (i.e. sample rate, block size, etc) are changed.
-
-    // You can use this function to initialise any resources you might need,
-    // but be careful - it will be called on the audio thread, not the GUI thread.
-
-    // For more details, see the help for AudioProcessor::prepareToPlay()
+void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate) {
 }
 
-void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill)
-{
-    // Your audio-processing code goes here!
-
-    // For more details, see the help for AudioProcessor::getNextAudioBlock()
-
-    // Right now we are not producing any data, in which case we need to clear the buffer
-    // (to prevent the output of random noise)
-    bufferToFill.clearActiveBufferRegion();
+void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) {
+    //bufferToFill.clearActiveBufferRegion();
+    
+    auto levelScale = level * 2.0f;
+    for (auto channel = 0; channel < bufferToFill.buffer->getNumChannels(); ++channel) {
+        auto* buffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
+        for (auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
+            auto r = random.nextFloat() * levelScale - level;
+            buffer[sample] = r;
+        }
+    }
 }
 
-void MainComponent::releaseResources()
-{
-    // This will be called when the audio device stops, or when it is being
-    // restarted due to a setting change.
-
-    // For more details, see the help for AudioProcessor::releaseResources()
+void MainComponent::releaseResources() {
 }
 
 //==============================================================================
-void MainComponent::paint (Graphics& g)
-{
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
+void MainComponent::paint (Graphics& g) {
     g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
-
-    // You can add your drawing code here!
 }
 
-void MainComponent::resized()
-{
-    // This is called when the MainContentComponent is resized.
-    // If you add any child components, this is where you should
-    // update their positions.
+void MainComponent::resized() {
+    decibelSlider.setBounds(120, 10, getWidth()-130, 20);
+}
+
+//==============================================================================
+double DecibelSlider::getValueFromText (const String& text) {
+    auto decibelText = text.upToFirstOccurrenceOf("dB", false, false).trim();
+    auto minusInfinitydB = -96.0;
+    return decibelText.equalsIgnoreCase("-INF") ? minusInfinitydB : decibelText.getDoubleValue();
+}
+
+String DecibelSlider::getTextFromValue (double value) {
+    return Decibels::toString(value);
 }

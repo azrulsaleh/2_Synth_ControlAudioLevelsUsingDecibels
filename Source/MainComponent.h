@@ -10,11 +10,16 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
-//==============================================================================
-/*
-    This component lives inside our window, and this is where you should put all
-    your controls and content.
-*/
+class DecibelSlider : public Slider
+{
+public:
+    DecibelSlider() {}
+    double getValueFromText (const String&) override;
+    String getTextFromValue (double) override;
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DecibelSlider)
+};
+
 class MainComponent   : public AudioAppComponent
 {
 public:
@@ -26,15 +31,15 @@ public:
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
     void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override;
     void releaseResources() override;
-
+    
     //==============================================================================
     void paint (Graphics& g) override;
     void resized() override;
-
 private:
-    //==============================================================================
-    // Your private member variables go here...
-
+    Random random;
+    DecibelSlider decibelSlider;
+    Label levelLabel;
+    float level;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
